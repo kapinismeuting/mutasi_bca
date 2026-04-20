@@ -1,7 +1,9 @@
-# ===== CONFIGURATION =====
+--
+Config: 
+
 PDF_FOLDER = os.path.expanduser("~/dev/appdev/Mutasi/2016")
 OUTPUT_FOLDER = os.path.expanduser("~/dev/appdev/Mutasi_Excel")
-# =========================
+---
 
 PDF_Folder = path ke folder file-file mutasi
 OUTPUT_FOLDER = path hasil extract data ke xlsx
