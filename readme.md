@@ -1,7 +1,7 @@
 ## CONFIG: 
 
-PDF_FOLDER = os.path.expanduser("~/dev/appdev/Mutasi/2016")
-OUTPUT_FOLDER = os.path.expanduser("~/dev/appdev/Mutasi_Excel")
+PDF_FOLDER = os.path.expanduser("home/user/your/path/to/Mutasi/2016")
+OUTPUT_FOLDER = os.path.expanduser("home/user/your/path/to/Mutasi_Excel")
 
 PDF_Folder = path ke folder file-file mutasi
 OUTPUT_FOLDER = path hasil extract data ke xlsx
