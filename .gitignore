@@ -1,2 +1,38 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment variables
+.env
+.env.local
+
+# Build / Distribution
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# IDE and OS files
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Project Specific
 /Mutasi
-.venv
+*.xlsx
+*.pdf
+.streamlit/
+AUDIT_REPORT.md
+IMPLEMENTATION_SUMMARY.md
+PROJECT_COMPLETION_SUMMARY.txt
