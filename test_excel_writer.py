@@ -40,15 +40,7 @@ class TestCreateBackup:
             f.write(b"test content")
         
         try:
-            # Mock config
-            from config import Config
-            original_backup = Config.BACKUP_FILES
-            Config.BACKUP_FILES = True
-            
-            backup_path = create_backup(temp_path)
-            
-            # Restore config
-            Config.BACKUP_FILES = original_backup
+            backup_path = create_backup(temp_path, backup_files=True)
             
             assert backup_path is not None
             assert os.path.exists(backup_path)
@@ -70,15 +62,7 @@ class TestCreateBackup:
             temp_path = f.name
         
         try:
-            # Mock config
-            from config import Config
-            original_backup = Config.BACKUP_FILES
-            Config.BACKUP_FILES = False
-            
-            backup_path = create_backup(temp_path)
-            
-            # Restore config
-            Config.BACKUP_FILES = original_backup
+            backup_path = create_backup(temp_path, backup_files=False)
             
             assert backup_path is None
         finally:

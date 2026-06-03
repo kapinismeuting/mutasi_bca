@@ -12,6 +12,7 @@ Configuration via environment variables:
 
 import os
 import sys
+import pdfplumber
 from pathlib import Path
 from typing import List, Optional
 from dataclasses import dataclass
@@ -33,12 +34,13 @@ class ProcessResult:
     row_count: int = 0
 
 
-def process_single_pdf(pdf_path: str, output_folder: str) -> ProcessResult:
+def process_single_pdf(pdf_path: str, output_folder: str, backup_files: bool = True) -> ProcessResult:
     """Process a single PDF file and write to Excel.
     
     Args:
         pdf_path: Path to PDF file
         output_folder: Output directory for Excel file
+        backup_files: Whether to create backups
         
     Returns:
         ProcessResult with success status and details
@@ -56,7 +58,7 @@ def process_single_pdf(pdf_path: str, output_folder: str) -> ProcessResult:
         output_path = os.path.join(output_folder, f"{base_name}.xlsx")
         
         # Write to Excel
-        write_transactions_to_excel(transactions, output_path)
+        write_transactions_to_excel(transactions, output_path, backup_files=backup_files)
         
         return ProcessResult(
             success=True,
@@ -76,17 +78,23 @@ def process_single_pdf(pdf_path: str, output_folder: str) -> ProcessResult:
         return ProcessResult(success=False, filename=filename, error=error_msg)
     
     except Exception as e:
-        error_msg = f"Error: {e}"
+        error_msg = f"PDF error: {e}"
+        logger.error(error_msg)
+        return ProcessResult(success=False, filename=filename, error=error_msg)
+    
+    except (IOError, OSError) as e:
+        error_msg = f"IO error: {e}"
         logger.error(error_msg)
         return ProcessResult(success=False, filename=filename, error=error_msg)
 
 
-def process_all_pdfs(pdf_folder: str, output_folder: str) -> List[ProcessResult]:
+def process_all_pdfs(pdf_folder: str, output_folder: str, backup_files: bool = True) -> List[ProcessResult]:
     """Process all PDFs in folder.
     
     Args:
         pdf_folder: Input directory with PDFs
         output_folder: Output directory for Excel files
+        backup_files: Whether to create backups
         
     Returns:
         List of ProcessResult for each file
@@ -104,19 +112,19 @@ def process_all_pdfs(pdf_folder: str, output_folder: str) -> List[ProcessResult]
         if f.lower().endswith('.pdf')
     ])
     
+    # Create output folder
+    os.makedirs(output_folder, exist_ok=True)
+    
     if not pdf_files:
         logger.warning(f"No PDFs found in {pdf_folder}")
         return results
     
     logger.info(f"Found {len(pdf_files)} PDF files in {pdf_folder}")
     
-    # Create output folder
-    os.makedirs(output_folder, exist_ok=True)
-    
     # Process each PDF
     for filename in pdf_files:
         pdf_path = os.path.join(pdf_folder, filename)
-        result = process_single_pdf(pdf_path, output_folder)
+        result = process_single_pdf(pdf_path, output_folder, backup_files)
         results.append(result)
         
         if result.success:

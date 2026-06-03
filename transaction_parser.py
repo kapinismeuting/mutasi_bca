@@ -4,6 +4,7 @@ BCA bank statement transaction parser.
 Extracts transactions from PDF text with robust error handling.
 """
 
+import os
 import re
 import pdfplumber
 from typing import List, Dict, Tuple, Optional
@@ -11,6 +12,13 @@ from datetime import datetime
 from config import Config, get_logger
 
 logger = get_logger('mutasi.parser')
+
+def parse_amount(val_str: str) -> Optional[float]:
+    """Parse string amount to float."""
+    if not val_str:
+        return None
+    return float(val_str.replace(',', ''))
+
 
 
 class Transaction:
@@ -48,9 +56,9 @@ class Transaction:
             'tanggal': self.day,
             'bulan': self.month,
             'keterangan': self.description,
-            'db': self.debit,
-            'cr': self.credit,
-            'saldo': self.balance
+            'db': parse_amount(self.debit),
+            'cr': parse_amount(self.credit),
+            'saldo': parse_amount(self.balance)
         }
     
     def validate(self) -> Tuple[bool, Optional[str]]:
@@ -223,12 +231,12 @@ def parse_summary_line(line: str) -> Optional[Dict]:
         amount = amount_match.group(1) if amount_match else ""
         
         return {
-            'tanggal': "",
-            'bulan': "",
+            'tanggal': None,
+            'bulan': None,
             'keterangan': line.strip(),
-            'db': "",
-            'cr': "",
-            'saldo': amount
+            'db': None,
+            'cr': None,
+            'saldo': parse_amount(amount)
         }
     return None
 
@@ -247,8 +255,6 @@ def parse_bca_transactions(pdf_path: str) -> List[Dict]:
         ValueError: If file is too large
         pdfplumber.PDFException: If PDF cannot be read
     """
-    import os
-    
     # Validate file exists
     if not os.path.exists(pdf_path):
         logger.error(f"PDF file not found: {pdf_path}")
@@ -303,7 +309,7 @@ def parse_bca_transactions(pdf_path: str) -> List[Dict]:
                     logger.error(f"Error parsing page {page_num}: {e}")
                     raise
     
-    except pdfplumber.PDFException as e:
+    except Exception as e:
         logger.error(f"Invalid PDF file: {pdf_path} - {e}")
         raise
     except Exception as e:

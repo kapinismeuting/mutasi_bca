@@ -12,6 +12,7 @@ Configuration via environment variables:
 
 import os
 import sys
+import pdfplumber
 from pathlib import Path
 from typing import Dict, List, Optional
 from dataclasses import dataclass
@@ -79,7 +80,17 @@ def process_pdf_for_sheet(pdf_path: str) -> Optional[ProcessResult]:
         )
     
     except Exception as e:
-        error_msg = f"Error: {e}"
+        error_msg = f"PDF error: {e}"
+        logger.error(error_msg)
+        return ProcessResult(
+            success=False,
+            filename=filename,
+            sheet_name=sheet_name,
+            error=error_msg
+        )
+    
+    except (IOError, OSError) as e:
+        error_msg = f"IO error: {e}"
         logger.error(error_msg)
         return ProcessResult(
             success=False,
@@ -89,12 +100,13 @@ def process_pdf_for_sheet(pdf_path: str) -> Optional[ProcessResult]:
         )
 
 
-def process_all_pdfs_to_single_excel(pdf_folder: str, output_folder: str) -> List[ProcessResult]:
+def process_all_pdfs_to_single_excel(pdf_folder: str, output_folder: str, backup_files: bool = True) -> List[ProcessResult]:
     """Process all PDFs in folder and write to consolidated Excel file.
     
     Args:
         pdf_folder: Input directory with PDFs
         output_folder: Output directory for Excel file
+        backup_files: Whether to create backups
         
     Returns:
         List of ProcessResult for each file
@@ -112,14 +124,14 @@ def process_all_pdfs_to_single_excel(pdf_folder: str, output_folder: str) -> Lis
         if f.lower().endswith('.pdf')
     ])
     
+    # Create output folder
+    os.makedirs(output_folder, exist_ok=True)
+    
     if not pdf_files:
         logger.warning(f"No PDFs found in {pdf_folder}")
         return results
     
     logger.info(f"Found {len(pdf_files)} PDF files in {pdf_folder}")
-    
-    # Create output folder
-    os.makedirs(output_folder, exist_ok=True)
     
     # Process each PDF and collect transactions
     transactions_by_sheet: Dict[str, List[Dict]] = {}
@@ -150,7 +162,7 @@ def process_all_pdfs_to_single_excel(pdf_folder: str, output_folder: str) -> Lis
         output_path = os.path.join(output_folder, output_filename)
         
         try:
-            write_multiple_sheets_to_excel(transactions_by_sheet, output_path)
+            write_multiple_sheets_to_excel(transactions_by_sheet, output_path, backup_files=backup_files)
             logger.info(f"✅ Consolidated Excel file created: {output_path}")
         except Exception as e:
             logger.error(f"Failed to write consolidated Excel: {e}")

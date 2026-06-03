@@ -16,23 +16,25 @@ from config import Config, get_logger
 logger = get_logger('mutasi.excel')
 
 
-def format_column_width(max_length: int) -> float:
+def format_column_width(max_length: int, max_width: int = Config.MAX_COLUMN_WIDTH) -> float:
     """Calculate Excel column width from content length.
     
     Args:
         max_length: Maximum content length in column
+        max_width: Maximum allowed column width
         
     Returns:
         Width value for Excel column
     """
-    return min(max_length + Config.MIN_COLUMN_WIDTH, Config.MAX_COLUMN_WIDTH)
+    return min(max_length + Config.MIN_COLUMN_WIDTH, max_width)
 
 
-def create_backup(output_path: str) -> Optional[str]:
+def create_backup(output_path: str, backup_files: bool = True) -> Optional[str]:
     """Create backup of existing file.
     
     Args:
         output_path: Path to file to backup
+        backup_files: Whether to create backups
         
     Returns:
         Path to backup file or None if not created
@@ -40,7 +42,7 @@ def create_backup(output_path: str) -> Optional[str]:
     if not os.path.exists(output_path):
         return None
     
-    if not Config.BACKUP_FILES:
+    if not backup_files:
         logger.debug(f"Backup disabled, skipping: {output_path}")
         return None
     
@@ -76,28 +78,30 @@ def auto_adjust_columns(worksheet: Worksheet, max_width: int = Config.MAX_COLUMN
                     continue
             
             # Set column width
-            worksheet.column_dimensions[col_letter].width = format_column_width(max_len)
+            worksheet.column_dimensions[col_letter].width = format_column_width(max_len, max_width)
             
     except Exception as e:
         logger.error(f"Error adjusting column widths: {e}")
 
 
-def save_excel_file(workbook: Workbook, output_path: str) -> None:
+def save_excel_file(workbook: Workbook, output_path: str, backup_files: bool = True) -> None:
     """Save Excel workbook with atomic operation.
     
     Args:
         workbook: Workbook to save
         output_path: Path where to save file
+        backup_files: Whether to create backups
         
     Raises:
         IOError: If save operation fails
     """
+    temp_path = None
     try:
         # Ensure output directory exists
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         
         # Create backup if file exists
-        create_backup(output_path)
+        create_backup(output_path, backup_files)
         
         # Save to temporary file first (atomic operation)
         temp_path = output_path + '.tmp'
@@ -113,7 +117,7 @@ def save_excel_file(workbook: Workbook, output_path: str) -> None:
         
     except Exception as e:
         # Clean up temp file if it exists
-        if os.path.exists(temp_path):
+        if temp_path and os.path.exists(temp_path):
             try:
                 os.remove(temp_path)
             except:
@@ -125,7 +129,8 @@ def save_excel_file(workbook: Workbook, output_path: str) -> None:
 def write_transactions_to_excel(
     transactions: List[Dict],
     output_path: str,
-    sheet_name: str = "Mutasi Rekening"
+    sheet_name: str = "Mutasi Rekening",
+    backup_files: bool = True
 ) -> None:
     """Write transactions to Excel file.
     
@@ -133,6 +138,7 @@ def write_transactions_to_excel(
         transactions: List of transaction dictionaries
         output_path: Path to output Excel file
         sheet_name: Name for the worksheet
+        backup_files: Whether to create backups
         
     Raises:
         IOError: If file operation fails
@@ -171,23 +177,25 @@ def write_transactions_to_excel(
         auto_adjust_columns(ws)
         
         # Save file
-        save_excel_file(wb, output_path)
+        save_excel_file(wb, output_path, backup_files)
         logger.info(f"Wrote {row_count} transactions to {output_path}")
         
-    except Exception as e:
+    except (IOError, OSError) as e:
         logger.error(f"Error writing to Excel: {e}")
         raise
 
 
 def write_multiple_sheets_to_excel(
     transactions_by_sheet: Dict[str, List[Dict]],
-    output_path: str
+    output_path: str,
+    backup_files: bool = True
 ) -> None:
     """Write multiple sheets to single Excel file.
     
     Args:
         transactions_by_sheet: Dictionary of sheet_name -> transactions
         output_path: Path to output Excel file
+        backup_files: Whether to create backups
         
     Raises:
         IOError: If file operation fails
@@ -237,9 +245,9 @@ def write_multiple_sheets_to_excel(
                 continue
         
         # Save file
-        save_excel_file(wb, output_path)
+        save_excel_file(wb, output_path, backup_files)
         logger.info(f"Wrote {total_rows} total transactions across {len(transactions_by_sheet)} sheets")
         
-    except Exception as e:
+    except (IOError, OSError) as e:
         logger.error(f"Error writing multiple sheets: {e}")
         raise

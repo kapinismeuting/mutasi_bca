@@ -164,143 +164,133 @@ with tab1:
     
     # Processing
     if process_button and uploaded_files:
-        # Create temporary directories
-        temp_input_dir = Path(st.session_state.get('temp_input_dir', 
-                                                    f"/tmp/bca_input_{datetime.now().timestamp()}"))
-        temp_output_dir = Path(st.session_state.get('temp_output_dir',
-                                                     f"/tmp/bca_output_{datetime.now().timestamp()}"))
-        
-        temp_input_dir.mkdir(parents=True, exist_ok=True)
-        temp_output_dir.mkdir(parents=True, exist_ok=True)
-        
-        st.session_state.temp_input_dir = str(temp_input_dir)
-        st.session_state.temp_output_dir = str(temp_output_dir)
-        
+        import tempfile
         try:
-            # Save uploaded files to temp directory
-            with st.status("Preparing files...", expanded=True):
-                st.write("Saving uploaded PDF files...")
+            with tempfile.TemporaryDirectory() as input_dir, tempfile.TemporaryDirectory() as output_dir:
+                temp_input_dir = Path(input_dir)
+                temp_output_dir = Path(output_dir)
                 
-                for uploaded_file in uploaded_files:
-                    file_path = temp_input_dir / uploaded_file.name
-                    file_path.write_bytes(uploaded_file.getvalue())
-                    st.write(f"✅ Saved: {uploaded_file.name}")
-            
-            # Process PDFs
-            with st.status("Processing PDF files...", expanded=True):
-                st.write(f"🔄 Starting {processing_mode.lower()} mode...")
-                
-                # Update config
-                Config.BACKUP_FILES = create_backups
-                
-                # Process based on mode
-                if processing_mode == "Individual Files":
-                    results = process_all_pdfs(str(temp_input_dir), str(temp_output_dir))
-                else:
-                    results = process_all_pdfs_to_single_excel(
-                        str(temp_input_dir), str(temp_output_dir))
-                
-                st.write("✅ Processing completed!")
-            
-            # Calculate statistics
-            successful = sum(1 for r in results if r.success)
-            failed = sum(1 for r in results if not r.success)
-            total_rows = sum(r.row_count for r in results if r.success)
-            
-            # Display results
-            st.divider()
-            st.success("✅ Processing Complete!")
-            
-            # Metrics
-            st.subheader("📊 Summary Statistics")
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric("Total Files", len(results))
-            with col2:
-                st.metric("Successful", successful, delta=None, delta_color="off")
-            with col3:
-                st.metric("Failed", failed, delta=None, delta_color="off")
-            with col4:
-                st.metric("Total Rows", total_rows)
-            
-            st.info(f"⏱️ Processing completed at {datetime.now().strftime('%H:%M:%S')}")
-            
-            # Detailed results
-            st.subheader("📋 Processing Details")
-            
-            # Get output files
-            output_files = list(temp_output_dir.glob("*.xlsx"))
-            
-            if output_files:
-                st.success(f"✅ Generated {len(output_files)} Excel file(s)")
-                
-                with st.expander("📥 Download Files", expanded=True):
-                    st.write("Click on a file to download:")
+                # Save uploaded files to temp directory
+                with st.status("Preparing files...", expanded=True):
+                    st.write("Saving uploaded PDF files...")
                     
-                    # Individual downloads
-                    col1, col2, col3 = st.columns(3)
-                    
-                    for idx, file_path in enumerate(sorted(output_files)):
-                        col = [col1, col2, col3][idx % 3]
+                    for uploaded_file in uploaded_files:
+                        if uploaded_file.size > Config.MAX_PDF_SIZE:
+                            st.error(f"File {uploaded_file.name} exceeds max size limit.")
+                            st.stop()
                         
-                        with col:
-                            file_data = file_path.read_bytes()
+                        file_path = temp_input_dir / uploaded_file.name
+                        file_path.write_bytes(uploaded_file.getvalue())
+                        st.write(f"✅ Saved: {uploaded_file.name}")
+            
+                # Process PDFs
+                with st.status("Processing PDF files...", expanded=True):
+                    st.write(f"🔄 Starting {processing_mode.lower()} mode...")
+                    
+                    # Process based on mode
+                    if processing_mode == "Individual Files":
+                        results = process_all_pdfs(str(temp_input_dir), str(temp_output_dir), backup_files=create_backups)
+                    else:
+                        results = process_all_pdfs_to_single_excel(
+                            str(temp_input_dir), str(temp_output_dir), backup_files=create_backups)
+                    
+                    st.write("✅ Processing completed!")
+            
+                # Calculate statistics
+                successful = sum(1 for r in results if r.success)
+                failed = sum(1 for r in results if not r.success)
+                total_rows = sum(r.row_count for r in results if r.success)
+                
+                # Display results
+                st.divider()
+                st.success("✅ Processing Complete!")
+            
+                # Metrics
+                st.subheader("📊 Summary Statistics")
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("Total Files", len(results))
+                with col2:
+                    st.metric("Successful", successful, delta=None, delta_color="off")
+                with col3:
+                    st.metric("Failed", failed, delta=None, delta_color="off")
+                with col4:
+                    st.metric("Total Rows", total_rows)
+                
+                st.info(f"⏱️ Processing completed at {datetime.now().strftime('%H:%M:%S')}")
+                
+                # Detailed results
+                st.subheader("📋 Processing Details")
+                
+                # Get output files
+                output_files = list(temp_output_dir.glob("*.xlsx"))
+            
+                if output_files:
+                    st.success(f"✅ Generated {len(output_files)} Excel file(s)")
+                    
+                    with st.expander("📥 Download Files", expanded=True):
+                        st.write("Click on a file to download:")
+                        
+                        # Individual downloads
+                        col1, col2, col3 = st.columns(3)
+                        
+                        for idx, file_path in enumerate(sorted(output_files)):
+                            col = [col1, col2, col3][idx % 3]
+                            
+                            with col:
+                                file_data = file_path.read_bytes()
+                                st.download_button(
+                                    label=f"📥 {file_path.name}",
+                                    data=file_data,
+                                    file_name=file_path.name,
+                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                    use_container_width=True
+                                )
+                        
+                        st.divider()
+                        
+                        # Download all as zip
+                        if len(output_files) > 1:
+                            st.write("Or download all files as ZIP:")
+                            
+                            zip_buffer = io.BytesIO()
+                            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                                for file_path in sorted(output_files):
+                                    zip_file.write(file_path, arcname=file_path.name)
+                            
+                            zip_buffer.seek(0)
+                            
                             st.download_button(
-                                label=f"📥 {file_path.name}",
-                                data=file_data,
-                                file_name=file_path.name,
-                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                label="📦 Download All as ZIP",
+                                data=zip_buffer.getvalue(),
+                                file_name=f"bca_statements_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
+                                mime="application/zip",
                                 use_container_width=True
                             )
-                    
-                    st.divider()
-                    
-                    # Download all as zip
-                    if len(output_files) > 1:
-                        st.write("Or download all files as ZIP:")
-                        
-                        zip_buffer = io.BytesIO()
-                        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-                            for file_path in sorted(output_files):
-                                zip_file.write(file_path, arcname=file_path.name)
-                        
-                        zip_buffer.seek(0)
-                        
-                        st.download_button(
-                            label="📦 Download All as ZIP",
-                            data=zip_buffer.getvalue(),
-                            file_name=f"bca_statements_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
-                            mime="application/zip",
-                            use_container_width=True
-                        )
+                
+                # Successful files details
+                if successful > 0:
+                    with st.expander("✅ Successful Files", expanded=False):
+                        for result in results:
+                            if result.success:
+                                col1, col2 = st.columns([3, 1])
+                                with col1:
+                                    st.write(f"**{result.filename}**")
+                                with col2:
+                                    st.metric("Rows", result.row_count, label_visibility="collapsed")
             
-            # Successful files details
-            if successful > 0:
-                with st.expander("✅ Successful Files", expanded=False):
-                    for result in results:
-                        if result.success:
-                            col1, col2 = st.columns([3, 1])
-                            with col1:
-                                st.write(f"**{result.filename}**")
-                            with col2:
-                                st.metric("Rows", result.row_count, label_visibility="collapsed")
-            
-            # Failed files details
-            if failed > 0:
-                with st.expander("❌ Failed Files", expanded=True):
-                    for result in results:
-                        if not result.success:
-                            st.error(f"**{result.filename}**")
-                            st.code(result.error, language="text")
+                # Failed files details
+                if failed > 0:
+                    with st.expander("❌ Failed Files", expanded=True):
+                        for result in results:
+                            if not result.success:
+                                st.error(f"**{result.filename}**")
+                                st.code(result.error, language="text")
         
         except Exception as e:
             st.error(f"❌ Processing Error: {str(e)}")
             logger.exception(f"Processing error: {e}")
-        
-        finally:
-            # Note: Temp directories will be cleaned up when browser session ends
-            pass
     
     elif process_button and not uploaded_files:
         st.warning("⚠️ Please upload at least one PDF file")
@@ -330,11 +320,8 @@ with tab2:
     col1, col2 = st.columns(2)
     
     with col1:
-        output_path = st.text_input(
-            "📁 Output Folder Path:",
-            value=Config.OUTPUT_FOLDER,
-            placeholder="/path/to/output"
-        )
+        st.info(f"Directory locked to: {Config.OUTPUT_FOLDER}")
+        output_path = Config.OUTPUT_FOLDER
     
     with col2:
         inspect_button = st.button("🔍 Inspect Folder", use_container_width=True)
