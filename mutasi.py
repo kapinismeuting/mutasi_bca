@@ -10,8 +10,8 @@ import os
 from openpyxl import Workbook
 
 # ===== CONFIGURATION =====
-PDF_FOLDER = os.path.expanduser("~/dev/appdev/Mutasi/2016")
-OUTPUT_FOLDER = os.path.expanduser("~/dev/appdev/Mutasi_Excel")
+PDF_FOLDER = os.path.expanduser("~/dev/appdev/mutasi_bca/Mutasi/2026")
+OUTPUT_FOLDER = os.path.expanduser("~/dev/appdev/mutasi_bca/Mutasi/2026")
 # =========================
 
 SUMMARY_PATTERN = re.compile(
